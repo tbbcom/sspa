@@ -118,25 +118,136 @@ function getKumpulanName(kumpulan) {
 	return names[kumpulan] || kumpulan;
 }
 
+function isCalculationReady() {
+        return calculationData && typeof calculationData.gajiHakiki === 'number' && !Number.isNaN(calculationData.gajiHakiki);
+}
+
+function requireCalculationData(actionDescription) {
+        if (isCalculationReady()) {
+                return true;
+        }
+
+        const message = actionDescription ? `Sila buat pengiraan sebelum ${actionDescription}.` : 'Sila buat pengiraan terlebih dahulu.';
+        alert(message);
+        return false;
+}
+
 function sspaShareWhatsApp() {
-	const {
-		gajiHakiki, gred, phase1Salary, phase2Salary, totalIncrease, totalPercent
-	} = calculationData;
-	const message = ` Kalkulator SSPA 2025\n\n` + `Gaji Semasa: ${formatCurrency(gajiHakiki)}\n` + `Gred: ${gred}\n\n` + `✅ Fasa 1 (1 Dis 2024): ${formatCurrency(phase1Salary)}\n` + `✅ Fasa 2 (1 Jan 2026): ${formatCurrency(phase2Salary)}\n\n` + ` Jumlah Kenaikan: ${formatCurrency(totalIncrease)} (+${totalPercent}%)\n\n` + `Kira gaji anda di: ${window.location.href}`;
-	const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-	window.open(whatsappUrl, '_blank');
+        if (!requireCalculationData('berkongsi keputusan')) {
+                return;
+        }
+
+        const {
+                gajiHakiki, gred, phase1Salary, phase2Salary, totalIncrease, totalPercent
+        } = calculationData;
+        const message = ` Kalkulator SSPA 2025\n\n` + `Gaji Semasa: ${formatCurrency(gajiHakiki)}\n` + `Gred: ${gred}\n\n` + `✅ Fasa 1 (1 Dis 2024): ${formatCurrency(phase1Salary)}\n` + `✅ Fasa 2 (1 Jan 2026): ${formatCurrency(phase2Salary)}\n\n` + ` Jumlah Kenaikan: ${formatCurrency(totalIncrease)} (+${totalPercent}%)\n\n` + `Kira gaji anda di: ${window.location.href}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
 }
 
 function sspaCopyResult() {
-	const {
-		gajiHakiki, gred, phase1Salary, phase2Salary, totalIncrease, totalPercent
-	} = calculationData;
-	const text = `Kalkulator SSPA 2025\n\n` + `Gaji Semasa: ${formatCurrency(gajiHakiki)}\n` + `Gred: ${gred}\n\n` + `Fasa 1 (1 Dis 2024): ${formatCurrency(phase1Salary)}\n` + `Fasa 2 (1 Jan 2026): ${formatCurrency(phase2Salary)}\n\n` + `Jumlah Kenaikan: ${formatCurrency(totalIncrease)} (+${totalPercent}%)`;
-	navigator.clipboard.writeText(text).then(() => {
-		alert('✅ Keputusan berjaya disalin!');
-	});
+        if (!requireCalculationData('menyalin keputusan')) {
+                return;
+        }
+
+        const {
+                gajiHakiki, gred, phase1Salary, phase2Salary, totalIncrease, totalPercent
+        } = calculationData;
+        const text = `Kalkulator SSPA 2025\n\n` + `Gaji Semasa: ${formatCurrency(gajiHakiki)}\n` + `Gred: ${gred}\n\n` + `Fasa 1 (1 Dis 2024): ${formatCurrency(phase1Salary)}\n` + `Fasa 2 (1 Jan 2026): ${formatCurrency(phase2Salary)}\n\n` + `Jumlah Kenaikan: ${formatCurrency(totalIncrease)} (+${totalPercent}%)`;
+        copyTextToClipboard(text).then(() => {
+                alert('✅ Keputusan berjaya disalin!');
+        }).catch(() => {
+                alert('Maaf, gagal menyalin keputusan. Sila cuba secara manual.');
+        });
 }
 
 function sspaPrintResult() {
-	window.print();
+        if (!requireCalculationData('mencetak keputusan')) {
+                return;
+        }
+
+        window.print();
+}
+
+function copyTextToClipboard(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                return navigator.clipboard.writeText(text);
+        }
+
+        return new Promise((resolve, reject) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+
+                const selection = document.getSelection();
+                const selectedRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+                textarea.select();
+
+                try {
+                        const successful = document.execCommand('copy');
+                        if (!successful) {
+                                reject();
+                                return;
+                        }
+                        resolve();
+                } catch (err) {
+                        reject(err);
+                } finally {
+                        document.body.removeChild(textarea);
+                        if (selectedRange && selection) {
+                                selection.removeAllRanges();
+                                selection.addRange(selectedRange);
+                        }
+                }
+        });
+}
+
+function attachActionHandlers() {
+        const actionMap = [
+                { selectors: ['sspaShareButton', 'sspaShareWhatsApp', '[data-sspa-action="share"]'], handler: sspaShareWhatsApp },
+                { selectors: ['sspaCopyButton', 'sspaCopyResult', '[data-sspa-action="copy"]'], handler: sspaCopyResult },
+                { selectors: ['sspaPrintButton', 'sspaPrintResult', '[data-sspa-action="print"]'], handler: sspaPrintResult }
+        ];
+
+        actionMap.forEach(({ selectors, handler }) => {
+                selectors.forEach((selector) => {
+                        if (!selector) {
+                                return;
+                        }
+
+                        let elements = [];
+                        if (selector.startsWith('[')) {
+                                elements = Array.from(document.querySelectorAll(selector));
+                        } else {
+                                const element = document.getElementById(selector);
+                                if (element) {
+                                        elements = [element];
+                                }
+                        }
+
+                        elements.forEach((element) => {
+                                if (!element.dataset || element.dataset.sspaHandlerAttached === 'true') {
+                                        return;
+                                }
+                                element.addEventListener('click', handler);
+                                element.dataset.sspaHandlerAttached = 'true';
+                        });
+                });
+        });
+}
+
+if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachActionHandlers);
+} else {
+        attachActionHandlers();
+}
+
+if (typeof window !== 'undefined') {
+        window.sspaShareWhatsApp = sspaShareWhatsApp;
+        window.sspaCopyResult = sspaCopyResult;
+        window.sspaPrintResult = sspaPrintResult;
 }
