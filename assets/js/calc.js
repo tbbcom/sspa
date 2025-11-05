@@ -20,14 +20,20 @@ document.getElementById('sspaCalcForm').addEventListener('submit', function(e) {
 });
 
 function calculateSSPA() {
-	const gajiHakiki = parseFloat(document.getElementById('sspaGajiHakiki').value);
-	const kumpulan = document.getElementById('sspaKumpulan').value;
-	const gred = document.getElementById('sspaGred').value;
-	if(!gajiHakiki || !kumpulan || !gred) {
-		alert('Sila isi semua maklumat yang diperlukan');
-		return;
-	}
-	const rates = sspaRates[kumpulan];
+        const gajiHakikiInput = document.getElementById('sspaGajiHakiki').value;
+        const sanitizedGajiHakiki = gajiHakikiInput.replace(/[^0-9.,-]/g, '').replace(/,/g, '');
+        const gajiHakiki = parseFloat(sanitizedGajiHakiki);
+        const kumpulan = document.getElementById('sspaKumpulan').value;
+        const gred = document.getElementById('sspaGred').value;
+        if(Number.isNaN(gajiHakiki) || !kumpulan || !gred) {
+                alert('Sila isi semua maklumat yang diperlukan');
+                return;
+        }
+        const rates = sspaRates[kumpulan];
+        if(!rates) {
+                alert('Kumpulan tidak sah. Sila pilih kumpulan yang betul.');
+                return;
+        }
 	// Phase 1 calculation
 	const phase1Increase = gajiHakiki * (rates.phase1 / 100);
 	const phase1Salary = gajiHakiki + phase1Increase;
